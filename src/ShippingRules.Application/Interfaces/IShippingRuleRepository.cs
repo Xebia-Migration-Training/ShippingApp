@@ -18,4 +18,8 @@ public interface IShippingRuleRepository
     Task UpdateAsync(ShippingRule rule, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> HasConflictingRuleAsync(ShippingRule rule, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ShippingRule>> GetConflictingRulesAsync(
+        ShippingRule rule,
+        CancellationToken cancellationToken = default);
 }

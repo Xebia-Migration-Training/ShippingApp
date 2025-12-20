@@ -14,6 +14,7 @@ public class ShippingRulesDbContext : DbContext
     public DbSet<Vessel> Vessels => Set<Vessel>();
     public DbSet<Principal> Principals => Set<Principal>();
     public DbSet<ShippingRule> ShippingRules => Set<ShippingRule>();
+    public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,6 +109,18 @@ public class ShippingRulesDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        // ExchangeRate configuration
+        modelBuilder.Entity<ExchangeRate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FromCurrency).IsRequired().HasMaxLength(3);
+            entity.Property(e => e.ToCurrency).IsRequired().HasMaxLength(3);
+            entity.Property(e => e.Rate).HasColumnType("decimal(18,6)");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100);
+            entity.Property(e => e.UpdatedBy).HasMaxLength(100);
+            entity.HasIndex(e => new { e.FromCurrency, e.ToCurrency, e.EffectiveFrom, e.IsActive });
+        });
+
         // Seed data
         SeedData(modelBuilder);
     }
@@ -139,5 +152,34 @@ public class ShippingRulesDbContext : DbContext
         var vessel2 = new Vessel { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), Name = "MSC Oscar", IMONumber = "IMO7654321", VesselType = "Container Ship", PrincipalId = msc.Id, IsActive = true, CreatedAt = DateTime.UtcNow, CreatedBy = "System" };
 
         modelBuilder.Entity<Vessel>().HasData(vessel1, vessel2);
+
+        // Seed Exchange Rates (minimal demo)
+        var now = DateTime.UtcNow;
+        var usdToInr = new ExchangeRate
+        {
+            Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            FromCurrency = "USD",
+            ToCurrency = "INR",
+            Rate = 83.000000m,
+            EffectiveFrom = now.AddYears(-5),
+            EffectiveTo = null,
+            IsActive = true,
+            CreatedAt = now,
+            CreatedBy = "System"
+        };
+        var inrToUsd = new ExchangeRate
+        {
+            Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+            FromCurrency = "INR",
+            ToCurrency = "USD",
+            Rate = 0.012048m,
+            EffectiveFrom = now.AddYears(-5),
+            EffectiveTo = null,
+            IsActive = true,
+            CreatedAt = now,
+            CreatedBy = "System"
+        };
+
+        modelBuilder.Entity<ExchangeRate>().HasData(usdToInr, inrToUsd);
     }
 }

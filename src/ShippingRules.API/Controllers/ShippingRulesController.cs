@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ShippingRules.Application.DTOs;
+using ShippingRules.Application.Exceptions;
 using ShippingRules.Application.Features.ShippingRules.Commands.CreateShippingRule;
 using ShippingRules.Application.Features.ShippingRules.Queries.GetAllRules;
+using ShippingRules.Application.Interfaces;
 using ShippingRules.Application.Services;
 
 namespace ShippingRules.API.Controllers;
@@ -15,15 +17,21 @@ public class ShippingRulesController : ControllerBase
     private readonly IMediator _mediator;
     private readonly RulePrecedenceService _precedenceService;
     private readonly ILogger<ShippingRulesController> _logger;
+    private readonly IShippingRuleRepository _repository;
+    private readonly ExchangeRateService _fx;
 
     public ShippingRulesController(
         IMediator mediator,
         RulePrecedenceService precedenceService,
-        ILogger<ShippingRulesController> logger)
+        ILogger<ShippingRulesController> logger,
+        IShippingRuleRepository repository,
+        ExchangeRateService fx)
     {
         _mediator = mediator;
         _precedenceService = precedenceService;
         _logger = logger;
+        _repository = repository;
+        _fx = fx;
     }
 
     /// <summary>
@@ -53,11 +61,71 @@ public class ShippingRulesController : ControllerBase
             var result = await _mediator.Send(command);
             return CreatedAtAction(nameof(GetAll), new { id = result.Id }, result);
         }
+        catch (RuleConflictException ex)
+        {
+            static DateTime MaxDate(DateTime? dt) => dt ?? DateTime.MaxValue;
+            static DateTime OverlapFrom(DateTime aFrom, DateTime bFrom) => aFrom > bFrom ? aFrom : bFrom;
+            static DateTime OverlapTo(DateTime? aTo, DateTime? bTo)
+            {
+                var x = MaxDate(aTo);
+                var y = MaxDate(bTo);
+                return x < y ? x : y;
+            }
+
+            var details = ex.Conflicts.Select(c => new
+            {
+                id = c.Id,
+                ruleName = c.RuleName,
+                existingEffectiveFrom = c.EffectiveFrom,
+                existingEffectiveTo = c.EffectiveTo,
+                overlapFrom = OverlapFrom(c.EffectiveFrom, ex.Candidate.EffectiveFrom),
+                overlapTo = OverlapTo(c.EffectiveTo, ex.Candidate.EffectiveTo)
+            });
+
+            return Conflict(new
+            {
+                message = ex.Message,
+                suggestion = "Change EffectiveFrom/EffectiveTo, or expire/deactivate the existing rule, or use different criteria specificity.",
+                conflicts = details
+            });
+        }
         catch (FluentValidation.ValidationException ex)
         {
             _logger.LogWarning(ex, "Validation failed for shipping rule");
             return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
         }
+    }
+
+    public record ApproveRuleRequest(string? ApprovedBy);
+
+    /// <summary>
+    /// Approve a pending shipping rule (activates it)
+    /// </summary>
+    [HttpPost("{id:guid}/approve")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<object>> ApproveRule(Guid id, [FromBody] ApproveRuleRequest request, CancellationToken ct)
+    {
+        var rule = await _repository.GetByIdAsync(id, ct);
+        if (rule is null)
+        {
+            return NotFound(new { message = "Rule not found" });
+        }
+
+        rule.IsActive = true;
+        rule.ApprovedBy = string.IsNullOrWhiteSpace(request.ApprovedBy) ? "System" : request.ApprovedBy.Trim();
+        rule.ApprovedAt = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(rule, ct);
+
+        return Ok(new
+        {
+            message = "Rule approved",
+            id = rule.Id,
+            isActive = rule.IsActive,
+            approvedBy = rule.ApprovedBy,
+            approvedAt = rule.ApprovedAt
+        });
     }
 
     /// <summary>
@@ -113,13 +181,16 @@ public class ShippingRulesController : ControllerBase
     public async Task<ActionResult<object>> CalculateCost(
         [FromBody] CostCalculationRequest request)
     {
+        var effectiveAt = request.EffectiveDate ?? DateTime.UtcNow;
+        var ruleType = request.RuleType ?? "FreightCharge";
+
         var rule = await _precedenceService.GetApplicableRuleAsync(
             request.CountryId,
             request.PortId,
             request.VesselId,
             request.PrincipalId,
-            request.EffectiveDate ?? DateTime.UtcNow,
-            request.RuleType ?? "FreightCharge");
+            effectiveAt,
+            ruleType);
 
         if (rule == null)
         {
@@ -128,6 +199,26 @@ public class ShippingRulesController : ControllerBase
 
         var totalCost = _precedenceService.CalculateCost(rule, request.BaseAmount);
 
+        // Minimal currency support: treat stored BaseRate as USD; optionally convert to TargetCurrency.
+        const string baseCurrency = "USD";
+        var target = string.IsNullOrWhiteSpace(request.TargetCurrency)
+            ? baseCurrency
+            : request.TargetCurrency.Trim().ToUpperInvariant();
+
+        decimal? fxRate = null;
+        decimal? convertedCost = null;
+
+        if (!string.Equals(target, baseCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            fxRate = await _fx.TryGetRateAsync(baseCurrency, target, effectiveAt);
+            if (fxRate is null)
+            {
+                return NotFound(new { message = "FX rate not found for conversion", from = baseCurrency, to = target });
+            }
+
+            convertedCost = totalCost * fxRate.Value;
+        }
+
         return Ok(new
         {
             appliedRule = rule.RuleName,
@@ -135,8 +226,64 @@ public class ShippingRulesController : ControllerBase
             baseRate = rule.BaseRate,
             surchargePercentage = rule.SurchargePercentage,
             baseAmount = request.BaseAmount,
-            calculatedCost = totalCost
+            calculatedCost = totalCost,
+            currency = baseCurrency,
+            targetCurrency = target,
+            fxRate,
+            convertedCost
         });
+    }
+
+    public record BatchCostRequestItem(
+        string Reference,
+        decimal BaseAmount,
+        Guid? CountryId,
+        Guid? PortId,
+        Guid? VesselId,
+        Guid? PrincipalId,
+        DateTime? EffectiveDate,
+        string? RuleType);
+
+    /// <summary>
+    /// Batch simulation: calculate costs for many criteria rows
+    /// </summary>
+    [HttpPost("batch-calculate-cost")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> BatchCalculateCost([FromBody] List<BatchCostRequestItem> items)
+    {
+        var results = new List<object>(items.Count);
+
+        foreach (var item in items)
+        {
+            var effectiveAt = item.EffectiveDate ?? DateTime.UtcNow;
+            var ruleType = item.RuleType ?? "FreightCharge";
+
+            var rule = await _precedenceService.GetApplicableRuleAsync(
+                item.CountryId,
+                item.PortId,
+                item.VesselId,
+                item.PrincipalId,
+                effectiveAt,
+                ruleType);
+
+            if (rule is null)
+            {
+                results.Add(new { reference = item.Reference, found = false, message = "No applicable rule found" });
+                continue;
+            }
+
+            var cost = _precedenceService.CalculateCost(rule, item.BaseAmount);
+            results.Add(new
+            {
+                reference = item.Reference,
+                found = true,
+                appliedRule = rule.RuleName,
+                precedenceLevel = rule.PrecedenceLevel,
+                calculatedCost = cost
+            });
+        }
+
+        return Ok(new { count = results.Count, results });
     }
 }
 
@@ -147,4 +294,5 @@ public record CostCalculationRequest(
     Guid? VesselId,
     Guid? PrincipalId,
     DateTime? EffectiveDate,
-    string? RuleType);
+    string? RuleType,
+    string? TargetCurrency = null);
