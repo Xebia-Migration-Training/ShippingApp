@@ -331,7 +331,26 @@ public class ShippingRulesController : ControllerBase
 
         return Ok(dto);
     }
-// Delete   
+// Delete the shipping rule by id
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var existingRule = await _repository.GetByIdAsync(id, ct);
+        if (existingRule is null)
+        {
+            return NotFound(new { message = "Rule not found" });
+        }
+
+        await _repository.DeleteAsync(existingRule, ct);
+
+        _logger.LogInformation("Deleted shipping rule with id: {RuleId}", id);
+
+        return NoContent();
+    }
+      
     
 
 }
