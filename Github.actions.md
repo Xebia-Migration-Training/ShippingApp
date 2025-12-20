@@ -1,15 +1,25 @@
-# GitHub Actions Manual - EasternShipping
+# GitHub Actions Documentation
+
+This document provides information about the GitHub Actions workflows configured for the ShippingApp repository.
+
+## Purpose
+
+GitHub Actions automate various CI/CD processes for this project, including building, testing, and deploying the shipping application.
 
 ## Overview
-This manual provides comprehensive guidance for setting up GitHub Actions CI/CD pipelines for the EasternShipping application, a multi-project .NET solution with API, Web, and MAUI components.
 
-## Table of Contents
-1. [Prerequisites](#prerequisites)
-2. [Workflow Structure](#workflow-structure)
-3. [CI/CD Workflows](#cicd-workflows)
-4. [Secrets Configuration](#secrets-configuration)
-5. [Deployment Strategies](#deployment-strategies)
-6. [Troubleshooting](#troubleshooting)
+This file contains documentation for GitHub Actions workflows used in the Eastern Shipping project. It describes the automation pipelines, their triggers, and the steps involved in continuous integration and deployment processes.
+
+## Related Files
+
+- `.github/workflows/` - Directory containing workflow YAML files
+- Repository: Xebia-Migration-Training/ShippingApp
+- Current Branch: sdsfgngnn
+- Default Branch: master
+
+## Additional Information
+
+For detailed workflow configurations, refer to the individual workflow files in the `.github/workflows/` directory.
 
 ---
 
