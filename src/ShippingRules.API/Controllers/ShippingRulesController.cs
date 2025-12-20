@@ -263,6 +263,7 @@ public class ShippingRulesController : ControllerBase
                 item.PortId,
                 item.VesselId,
                 item.PrincipalId,
+                item.cuntomerId,
                 effectiveAt,
                 ruleType);
 
@@ -285,8 +286,56 @@ public class ShippingRulesController : ControllerBase
 
         return Ok(new { count = results.Count, results });
     }
-}
+/// Update the shipping rule by name
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ShippingRuleDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ShippingRuleDto>> Update(Guid id, [FromBody] CreateShippingRuleCommand command, CancellationToken ct)
+    {
+        var existingRule = await _repository.GetByIdAsync(id, ct);
+        if (existingRule is null)
+        {
+            return NotFound(new { message = "Rule not found" });
+        }
 
+        existingRule.RuleName = command.RuleName;
+        existingRule.Description = command.Description;
+        existingRule.PrecedenceLevel = command.PrecedenceLevel;
+        existingRule.BaseRate = command.BaseRate;
+        existingRule.SurchargePercentage = command.SurchargePercentage;
+        existingRule.RuleType = command.RuleType;
+        existingRule.RuleCategory = command.RuleCategory;
+        existingRule.EffectiveFrom = command.EffectiveFrom;
+        existingRule.EffectiveTo = command.EffectiveTo;
+        existingRule.IsActive = command.IsActive;
+
+        await _repository.UpdateAsync(existingRule, ct);
+
+        var dto = new ShippingRuleDto
+        {
+            Id = existingRule.Id,
+            RuleName = existingRule.RuleName,
+            Description = existingRule.Description,
+            PrecedenceLevel = existingRule.PrecedenceLevel,
+            BaseRate = existingRule.BaseRate,
+            SurchargePercentage = existingRule.SurchargePercentage,
+            RuleType = existingRule.RuleType,
+            RuleCategory = existingRule.RuleCategory,
+            EffectiveFrom = existingRule.EffectiveFrom,
+            EffectiveTo = existingRule.EffectiveTo,
+            IsActive = existingRule.IsActive
+        };
+
+        _logger.LogInformation("Updated shipping rule with id: {RuleId}", id);
+
+        return Ok(dto);
+    }
+// Delete   
+    
+
+}
+#
 public record CostCalculationRequest(
     decimal BaseAmount,
     Guid? CountryId,
