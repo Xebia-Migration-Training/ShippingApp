@@ -1,0 +1,257 @@
+@page "/create-rule"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Create Shipping Rule</PageTitle>
+
+<div class="container mt-4">
+    <h2>Create New Shipping Rule</h2>
+    
+    <EditForm Model="@model" OnValidSubmit="@HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Rule Name *</label>
+                <InputText @bind-Value="model.RuleName" class="form-control" placeholder="Enter rule name" />
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Precedence Level *</label>
+                <InputSelect @bind-Value="model.PrecedenceLevel" class="form-select">
+                    <option value="1">1 - Vessel Specific</option>
+                    <option value="2">2 - Port Specific</option>
+                    <option value="3">3 - Principal Specific</option>
+                    <option value="4">4 - Country Specific</option>
+                    <option value="5">5 - Global</option>
+                </InputSelect>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Description *</label>
+            <InputTextArea @bind-Value="model.Description" class="form-control" rows="3" />
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Rule Type *</label>
+                <InputSelect @bind-Value="model.RuleType" class="form-select">
+                    <option value="FreightCharge">Freight Charge</option>
+                    <option value="PortCharge">Port Charge</option>
+                    <option value="CustomsDuty">Customs Duty</option>
+                    <option value="Surcharge">Surcharge</option>
+                </InputSelect>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Category</label>
+                <InputText @bind-Value="model.RuleCategory" class="form-control" />
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Base Rate ($) *</label>
+                <InputNumber @bind-Value="model.BaseRate" class="form-control" />
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Surcharge (%) *</label>
+                <InputNumber @bind-Value="model.SurchargePercentage" class="form-control" />
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Effective From *</label>
+                <InputDate @bind-Value="model.EffectiveFrom" class="form-control" />
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Effective To (Optional)</label>
+                <InputDate @bind-Value="model.EffectiveTo" class="form-control" />
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Country (Optional)</label>
+                <!-- Country (Optional) -->
+                <InputSelect @bind-Value="model.CountryId"
+                             @bind-Value:after="@(() => _ = CountryChanged(model.CountryId))"
+                             class="form-select"
+                             TValue="Guid?">
+                    <option value="">-- Select Country --</option>
+                    @foreach (var country in countries)
+                    {
+                        <option value="@country.Id">@country.Name</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Port (Optional)</label>
+                <!-- Port (Optional) -->
+                <InputSelect @bind-Value="model.PortId"
+                             class="form-select"
+                             TValue="Guid?">
+                    <option value="">-- Select Port --</option>
+                    @foreach (var port in ports)
+                    {
+                        <option value="@port.Id">@port.Name</option>
+                    }
+                </InputSelect>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Principal (Optional)</label>
+                <!-- Principal (Optional) -->
+                <InputSelect @bind-Value="model.PrincipalId"
+                             @bind-Value:after="@(() => _ = PrincipalChanged(model.PrincipalId))"
+                             class="form-select"
+                             TValue="Guid?">
+                    <option value="">-- Select Principal --</option>
+                    @foreach (var principal in principals)
+                    {
+                        <option value="@principal.Id">@principal.Name</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Vessel (Optional)</label>
+                <!-- Vessel (Optional) -->
+                <InputSelect @bind-Value="model.VesselId"
+                             class="form-select"
+                             TValue="Guid?">
+                    <option value="">-- Select Vessel --</option>
+                    @foreach (var vessel in vessels)
+                    {
+                        <option value="@vessel.Id">@vessel.Name</option>
+                    }
+                </InputSelect>
+            </div>
+        </div>
+
+        <div class="form-check mb-3">
+            <InputCheckbox @bind-Value="model.RequiresApproval" class="form-check-input" id="approval" />
+            <label class="form-check-label" for="approval">Requires Approval</label>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                Create Rule
+            </button>
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private CreateRuleModel model = new();
+    private bool isSubmitting = false;
+    private List<LookupItem> countries = new();
+    private List<LookupItem> ports = new();
+    private List<LookupItem> principals = new();
+    private List<LookupItem> vessels = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMasterData();
+    }
+
+    private async Task LoadMasterData()
+    {
+        try
+        {
+            // Use relative paths so HttpClient.BaseAddress is applied
+            countries = await Http.GetFromJsonAsync<List<LookupItem>>("/api/master/countries") ?? new();
+            principals = await Http.GetFromJsonAsync<List<LookupItem>>("/api/master/principals") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading master data: {ex.Message}");
+        }
+    }
+
+    private async Task CountryChanged(Guid? value)
+    {
+        model.CountryId = value;
+        model.PortId = null;
+
+        if (!value.HasValue)
+        {
+            ports.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        Console.WriteLine($"CountryChanged -> {value}");
+        ports = await Http.GetFromJsonAsync<List<LookupItem>>($"/api/master/ports?countryId={value}") ?? new();
+        StateHasChanged();
+    }
+
+    private async Task PrincipalChanged(Guid? value)
+    {
+        model.PrincipalId = value;
+        model.VesselId = null;
+
+        if (!value.HasValue)
+        {
+            vessels.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        Console.WriteLine($"PrincipalChanged -> {value}");
+        vessels = await Http.GetFromJsonAsync<List<LookupItem>>($"/api/master/vessels?principalId={value}") ?? new();
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/ShippingRules", model);
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/rules");
+            }
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel() => Navigation.NavigateTo("/rules");
+
+    public class CreateRuleModel
+    {
+        public string RuleName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int PrecedenceLevel { get; set; } = 1;
+        public Guid? CountryId { get; set; }
+        public Guid? PortId { get; set; }
+        public Guid? VesselId { get; set; }
+        public Guid? PrincipalId { get; set; }
+        public DateTime EffectiveFrom { get; set; } = DateTime.Today;
+        public DateTime? EffectiveTo { get; set; }
+        public decimal BaseRate { get; set; }
+        public decimal SurchargePercentage { get; set; }
+        public string RuleType { get; set; } = "FreightCharge";
+        public string RuleCategory { get; set; } = string.Empty;
+        public bool RequiresApproval { get; set; }
+    }
+
+    public record LookupItem(Guid Id, string Name, string Code);
+}

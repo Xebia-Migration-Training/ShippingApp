@@ -123,3 +123,10 @@ publish/
 
 # Azure
 *.azurePubxml
+
+# Build logs
+*.binlog
+
+# Web-only focus: ignore MAUI app project
+src/ShippingRules.MAUI/
+src/ShippingRules.MAUI.sln

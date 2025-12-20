@@ -38,9 +38,11 @@ try
 
     // Register Repositories
     builder.Services.AddScoped<IShippingRuleRepository, ShippingRuleRepository>();
+    builder.Services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
 
     // Register Services
     builder.Services.AddScoped<RulePrecedenceService>();
+    builder.Services.AddScoped<ExchangeRateService>();
 
     // Add CORS
     builder.Services.AddCors(options =>

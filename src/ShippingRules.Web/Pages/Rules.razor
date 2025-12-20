@@ -1,0 +1,119 @@
+@page "/rules"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Shipping Rules</PageTitle>
+
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2>Shipping Rules Management</h2>
+            <p class="text-muted">Manage business rules with precedence logic</p>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col">
+            <button class="btn btn-primary me-2" @onclick="NavigateToCreate">
+                <i class="bi bi-plus-circle"></i> Create New Rule
+            </button>
+            <button class="btn btn-secondary me-2" @onclick="LoadRules">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" @bind="showActiveOnly" @bind:after="LoadRules" id="activeOnly">
+                <label class="form-check-label" for="activeOnly">Active Only</label>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (rules == null || !rules.Any())
+    {
+        <div class="alert alert-info">
+            <p class="mb-0">No rules found. Create a new rule to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var rule in rules)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">@rule.RuleName</h5>
+                            <p class="card-text text-muted">@rule.Description</p>
+                            <div class="mb-2">
+                                <span class="badge bg-primary">Level @rule.PrecedenceLevel</span>
+                                <span class="badge bg-secondary">@rule.RuleType</span>
+                                @if (rule.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                            </div>
+                            <p class="mb-1"><strong>Base Rate:</strong> $@rule.BaseRate.ToString("N2")</p>
+                            <p class="mb-1"><strong>Surcharge:</strong> @rule.SurchargePercentage%</p>
+                            <p class="mb-0"><small class="text-muted">From: @rule.EffectiveFrom.ToString("MMM dd, yyyy")</small></p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ShippingRuleDto>? rules;
+    private bool isLoading = true;
+    private bool showActiveOnly = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRules();
+    }
+
+    private async Task LoadRules()
+    {
+        isLoading = true;
+        try
+        {
+            rules = await Http.GetFromJsonAsync<List<ShippingRuleDto>>(
+                $"/api/ShippingRules?activeOnly={showActiveOnly}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            rules = new List<ShippingRuleDto>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo("/create-rule");
+    }
+
+    public class ShippingRuleDto
+    {
+        public Guid Id { get; set; }
+        public string RuleName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int PrecedenceLevel { get; set; }
+        public decimal BaseRate { get; set; }
+        public decimal SurchargePercentage { get; set; }
+        public string RuleType { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime EffectiveFrom { get; set; }
+    }
+}
