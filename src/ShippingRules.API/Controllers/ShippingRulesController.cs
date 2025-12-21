@@ -263,7 +263,6 @@ public class ShippingRulesController : ControllerBase
                 item.PortId,
                 item.VesselId,
                 item.PrincipalId,
-                item.cuntomerId,
                 effectiveAt,
                 ruleType);
 
@@ -308,7 +307,6 @@ public class ShippingRulesController : ControllerBase
         existingRule.RuleCategory = command.RuleCategory;
         existingRule.EffectiveFrom = command.EffectiveFrom;
         existingRule.EffectiveTo = command.EffectiveTo;
-        existingRule.IsActive = command.IsActive;
 
         await _repository.UpdateAsync(existingRule, ct);
 
@@ -344,7 +342,7 @@ public class ShippingRulesController : ControllerBase
             return NotFound(new { message = "Rule not found" });
         }
 
-        await _repository.DeleteAsync(existingRule, ct);
+        await _repository.DeleteAsync(id, ct);
 
         _logger.LogInformation("Deleted shipping rule with id: {RuleId}", id);
 
