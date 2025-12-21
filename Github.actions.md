@@ -3,6 +3,94 @@
 ## Overview
 This manual provides comprehensive guidance for setting up GitHub Actions CI/CD pipelines for the EasternShipping application, a multi-project .NET solution with API, Web, and MAUI components.
 
+## Workflow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           GITHUB REPOSITORY                                  │
+│                                                                              │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐                │
+│  │   Feature   │      │   Develop   │      │     Main    │                 │
+│  │   Branch    │─────▶│   Branch    │─────▶│   Branch    │                 │
+│  └─────────────┘      └─────────────┘      └─────────────┘                 │
+│        │                     │                     │                         │
+└────────┼─────────────────────┼─────────────────────┼─────────────────────────┘
+         │                     │                     │
+         ▼                     ▼                     ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        GITHUB ACTIONS WORKFLOWS                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  PR VALIDATION (pr-validation.yml)                                  │  │
+│  │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐        │  │
+│  │  │  Lint    │──▶│  Build   │──▶│   Test   │──▶│ Coverage │        │  │
+│  │  │  Check   │   │  Check   │   │  Check   │   │  Report  │        │  │
+│  │  └──────────┘   └──────────┘   └──────────┘   └──────────┘        │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                    │                                        │
+│                                    ▼ (on merge)                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  CONTINUOUS INTEGRATION (ci.yml)                                    │  │
+│  │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐        │  │
+│  │  │ Checkout │──▶│ Restore  │──▶│  Build   │──▶│   Test   │        │  │
+│  │  │   Code   │   │   Deps   │   │ Solution │   │  & Cover │        │  │
+│  │  └──────────┘   └──────────┘   └──────────┘   └────┬─────┘        │  │
+│  └──────────────────────────────────────────────────────┼──────────────┘  │
+│                                                          │                  │
+│                                    ┌─────────────────────┴──────────┐      │
+│                                    ▼                                 ▼      │
+│  ┌──────────────────────────────────────┐   ┌──────────────────────────┐  │
+│  │  DOCKER BUILD (docker-build.yml)    │   │  CD-API (cd-api.yml)     │  │
+│  │  ┌──────────┐   ┌──────────┐        │   │  ┌──────────┐            │  │
+│  │  │  Build   │──▶│   Push   │        │   │  │  Build   │            │  │
+│  │  │  Image   │   │  to Hub  │        │   │  │ Artifact │            │  │
+│  │  └──────────┘   └──────────┘        │   │  └────┬─────┘            │  │
+│  └──────────────────────────────────────┘   │       │                  │  │
+│                                              │       ▼                  │  │
+│  ┌──────────────────────────────────────┐   │  ┌─────────┐            │  │
+│  │  CD-WEB (cd-web.yml)                 │   │  │ Deploy  │            │  │
+│  │  ┌──────────┐   ┌──────────┐        │   │  │ Staging │            │  │
+│  │  │  Build   │──▶│  Deploy  │        │   │  └────┬────┘            │  │
+│  │  │ Blazor   │   │  Static  │        │   │       │                  │  │
+│  │  └──────────┘   └──────────┘        │   │       ▼                  │  │
+│  └──────────────────────────────────────┘   │  ┌─────────┐            │  │
+│                                              │  │ Deploy  │            │  │
+│  ┌──────────────────────────────────────┐   │  │  Prod   │            │  │
+│  │  RELEASE (release.yml)               │   │  └─────────┘            │  │
+│  │  ┌──────────┐   ┌──────────┐        │   └──────────────────────────┘  │
+│  │  │  Create  │──▶│  Generate│        │                                  │
+│  │  │   Tag    │   │  Notes   │        │                                  │
+│  │  └──────────┘   └──────────┘        │                                  │
+│  └──────────────────────────────────────┘                                  │
+│                                                                             │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+                ┌─────────────────────┼─────────────────────┐
+                ▼                     ▼                     ▼
+       ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+       │  AZURE APP      │   │  DOCKER HUB     │   │  AZURE STORAGE  │
+       │  SERVICE        │   │  REGISTRY       │   │  (Static Web)   │
+       │                 │   │                 │   │                 │
+       │  • API Staging  │   │  • API Images   │   │  • Blazor WASM  │
+       │  • API Prod     │   │  • Tagged Ver.  │   │  • SPA Assets   │
+       └─────────────────┘   └─────────────────┘   └─────────────────┘
+
+                           DEPLOYMENT TARGETS
+```
+
+### Workflow Flow Description
+
+1. **Code Push**: Developers push code to feature branches
+2. **PR Validation**: Automated checks run on pull requests (lint, build, test, coverage)
+3. **CI Pipeline**: On merge to main/develop, full CI pipeline executes
+4. **Build Artifacts**: Solution is built and packaged for deployment
+5. **Deployment**: 
+   - API deployed to Azure App Service (staging → production)
+   - Web app deployed as static site to Azure Storage
+   - Docker images pushed to container registry
+6. **Release Management**: Tagged releases with automated changelog generation
+
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Workflow Structure](#workflow-structure)
