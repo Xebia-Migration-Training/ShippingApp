@@ -354,7 +354,7 @@ public class ShippingRulesController : ControllerBase
     
 
 }
-#
+
 public record CostCalculationRequest(
     decimal BaseAmount,
     Guid? CountryId,
