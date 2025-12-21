@@ -27,7 +27,7 @@ on:
 env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: easternshipping/api
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '9.0.x'
 
 jobs:
   # Stage 1: Build & Test
@@ -45,14 +45,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       
       - name: 📦 Restore dependencies
-        run: |
-          dotnet restore src/ShippingRules.Domain/ShippingRules.Domain.csproj
-          dotnet restore src/ShippingRules.Application/ShippingRules.Application.csproj
-          dotnet restore src/ShippingRules.Infrastructure/ShippingRules.Infrastructure.csproj
-          dotnet restore src/ShippingRules.API/ShippingRules.API.csproj
+        run: dotnet restore ShippingRules.Api.slnf
       
       - name: 🏗️ Build solution
-        run: dotnet build src/ShippingRules.API/ShippingRules.API.csproj --configuration Release --no-restore
+        run: dotnet build ShippingRules.Api.slnf --configuration Release --no-restore
       
       - name: 🧪 Run tests
         run: |
