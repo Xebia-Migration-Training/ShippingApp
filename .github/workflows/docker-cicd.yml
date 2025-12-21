@@ -22,12 +22,12 @@ name: Docker CI/CD Pipeline
 
 on:
   push:
-    branches: [ sdsfgngnn ]
+    branches: [ feature/manuals] 
 
 env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: easternshipping/api
-  DOTNET_VERSION: '9.0.9'
+  DOTNET_VERSION: '8.0.x'
 
 jobs:
   # Stage 1: Build & Test
