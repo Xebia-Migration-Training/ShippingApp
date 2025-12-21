@@ -228,33 +228,4 @@ public class ShippingRulesDbContext : DbContext
 
         modelBuilder.Entity<ExchangeRate>().HasData(usdToInr, inrToUsd);
     }
-
-    @code {
-    private static readonly List<LookupItem> fallbackCountries =
-    [
-        new LookupItem(Guid.Parse("33333333-3333-3333-3333-333333333333"), "India", "IN"),
-        new LookupItem(Guid.Parse("44444444-1111-2222-3333-444444444444"), "Singapore", "SG"),
-        new LookupItem(Guid.Parse("55555555-1111-2222-3333-555555555555"), "Malaysia", "MY")
-    ];
-
-    private List<LookupItem> countries = new(fallbackCountries);
-
-    private async Task LoadMasterData()
-    {
-        try
-        {
-            var apiCountries = await Http.GetFromJsonAsync<List<LookupItem>>("/api/master/countries") ?? [];
-            countries = apiCountries
-                .Concat(fallbackCountries)
-                .GroupBy(c => c.Code)
-                .Select(g => g.First())
-                .OrderBy(c => c.Name)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error loading master data: {ex.Message}");
-            countries = fallbackCountries;
-        }
-    }
 }
