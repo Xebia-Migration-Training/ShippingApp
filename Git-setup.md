@@ -1066,18 +1066,6 @@ git stash pop
 # Cherry-pick a commit from another branch
 git cherry-pick <commit-hash>
 
-# Interactive rebase (clean up history)
-git rebase -i HEAD~3
-
-# Find when a bug was introduced
-git bisect start
-
-# Search commit history
-git log --grep="vessel"
-
-# See who changed what
-git blame filename.cs
-```
 
 ---
 
@@ -1145,87 +1133,6 @@ git blame filename.cs
        ▼
     REPEAT
 ```
-
----
-
-## 📚 Additional Resources
-
-### Official Documentation
-- [Git Documentation](https://git-scm.com/doc)
-- [GitHub Guides](https://guides.github.com/)
-- [Pro Git Book](https://git-scm.com/book/en/v2) (Free!)
-
-### Interactive Learning
-- [Learn Git Branching](https://learngitbranching.js.org/) - Visual and interactive
-- [GitHub Learning Lab](https://lab.github.com/)
-
-### Cheat Sheets
-- [Git Cheat Sheet](https://education.github.com/git-cheat-sheet-education.pdf)
-- [Conventional Commits](https://www.conventionalcommits.org/)
-
-### Tools
-- [GitKraken](https://www.gitkraken.com/) - Visual Git client
-- [Sourcetree](https://www.sourcetreeapp.com/) - Free Git GUI
-- [VS Code Git Integration](https://code.visualstudio.com/docs/editor/versioncontrol) - Built-in!
-
----
-
-## 🎉 Conclusion
-
-Congratulations! You've completed the Git workflow setup guide. You now have:
-
-✅ Git installed and configured  
-✅ SSH keys set up for secure authentication  
-✅ Understanding of branch workflows  
-✅ Daily development routine mastered  
-✅ Troubleshooting skills acquired  
-✅ Pro tips in your toolkit  
-
-Remember: **Everyone makes Git mistakes.** The difference is knowing how to recover from them. Keep this guide handy, practice regularly, and soon Git will become second nature!
-
----
-
-## 💬 Need Help?
-
-If you get stuck:
-1. Check this guide's [Troubleshooting](#troubleshooting-common-issues) section
-2. Search [Stack Overflow](https://stackoverflow.com/questions/tagged/git)
-3. Ask in your team's Slack/Teams channel
-4. Check the [Official Git Documentation](https://git-scm.com/doc)
-
----
-
-### 📝 Quick Reference Card
-
-```bash
-# Setup
-git config --global user.name "Your Name"
-git config --global user.email "your.email@example.com"
-
-# Daily Workflow
-git pull origin main                    # Update local main
-git checkout -b feature/my-feature      # Create & switch to branch
-git add .                               # Stage changes
-git commit -m "feat: Add feature"       # Commit changes
-git push origin feature/my-feature      # Push to remote
-
-# Status & History
-git status                              # See current state
-git log --oneline                       # View commit history
-git diff                                # See unstaged changes
-
-# Branch Management
-git branch                              # List branches
-git checkout main                       # Switch branches
-git merge feature/my-feature            # Merge branch
-git branch -d feature/my-feature        # Delete branch
-
-# Emergency!
-git stash                               # Save work temporarily
-git reset --hard HEAD                   # Discard all changes
-git reflog                              # Find lost commits
-```
-
 ---
 
 **Happy Coding! May your merges be conflict-free and your commits be meaningful!** 🚀✨
