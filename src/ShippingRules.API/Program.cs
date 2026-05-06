@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using FluentValidation;
 using Serilog;
+using ShippingRules.API.Middleware;
 using ShippingRules.Application.Interfaces;
 using ShippingRules.Application.Services;
 using ShippingRules.Infrastructure.Data;
@@ -29,31 +30,48 @@ try
     builder.Services.AddDbContext<ShippingRulesDbContext>(options =>
         options.UseInMemoryDatabase("ShippingRulesDb"));
 
-    // Register MediatR
+    // Register MediatR with validation pipeline behavior
     builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(
         Assembly.Load("ShippingRules.Application")));
+    builder.Services.AddTransient(typeof(MediatR.IPipelineBehavior<,>), typeof(ShippingRules.Application.Behaviors.ValidationBehavior<,>));
 
     // Register FluentValidation
     builder.Services.AddValidatorsFromAssembly(Assembly.Load("ShippingRules.Application"));
 
     // Register Repositories
     builder.Services.AddScoped<IShippingRuleRepository, ShippingRuleRepository>();
+    builder.Services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
 
     // Register Services
     builder.Services.AddScoped<RulePrecedenceService>();
+    builder.Services.AddScoped<ExchangeRateService>();
 
-    // Add CORS
+    // Add CORS - restrict origins in production
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy("AllowAll", policy =>
+        options.AddPolicy("AllowConfigured", policy =>
         {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+            if (allowedOrigins is { Length: > 0 })
+            {
+                policy.WithOrigins(allowedOrigins)
+                      .AllowAnyMethod()
+                      .AllowAnyHeader();
+            }
+            else
+            {
+                // Fallback for development only
+                policy.AllowAnyOrigin()
+                      .AllowAnyMethod()
+                      .AllowAnyHeader();
+            }
         });
     });
 
     var app = builder.Build();
+
+    // Global exception handling - must be first in pipeline
+    app.UseMiddleware<GlobalExceptionHandler>();
 
     // Configure the HTTP request pipeline
     if (app.Environment.IsDevelopment())
@@ -69,7 +87,7 @@ try
     app.UseSerilogRequestLogging();
 
     app.UseHttpsRedirection();
-    app.UseCors("AllowAll");
+    app.UseCors("AllowConfigured");
     app.UseAuthorization();
     app.MapControllers();
 

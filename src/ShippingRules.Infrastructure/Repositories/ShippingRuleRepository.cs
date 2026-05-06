@@ -11,7 +11,7 @@ public class ShippingRuleRepository : IShippingRuleRepository
 
     public ShippingRuleRepository(ShippingRulesDbContext context)
     {
-        _context = context;
+        _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
     public async Task<ShippingRule?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -135,6 +135,9 @@ public class ShippingRuleRepository : IShippingRuleRepository
 
     public async Task<bool> HasConflictingRuleAsync(ShippingRule rule, CancellationToken cancellationToken = default)
     {
+        var newFrom = rule.EffectiveFrom;
+        var newTo = rule.EffectiveTo ?? DateTime.MaxValue;
+
         return await _context.ShippingRules
             .Where(r => r.Id != rule.Id)
             .Where(r => r.IsActive)
@@ -143,9 +146,30 @@ public class ShippingRuleRepository : IShippingRuleRepository
             .Where(r => r.PortId == rule.PortId)
             .Where(r => r.VesselId == rule.VesselId)
             .Where(r => r.PrincipalId == rule.PrincipalId)
-            .Where(r =>
-                (r.EffectiveFrom <= rule.EffectiveFrom && (!r.EffectiveTo.HasValue || r.EffectiveTo >= rule.EffectiveFrom)) ||
-                (rule.EffectiveTo.HasValue && r.EffectiveFrom <= rule.EffectiveTo && (!r.EffectiveTo.HasValue || r.EffectiveTo >= rule.EffectiveTo)))
-            .AnyAsync(cancellationToken);
+            .AnyAsync(r => r.EffectiveFrom <= newTo && newFrom <= (r.EffectiveTo ?? DateTime.MaxValue), cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ShippingRule>> GetConflictingRulesAsync(
+        ShippingRule rule,
+        CancellationToken cancellationToken = default)
+    {
+        var newFrom = rule.EffectiveFrom;
+        var newTo = rule.EffectiveTo ?? DateTime.MaxValue;
+
+        return await _context.ShippingRules
+            .Include(r => r.Country)
+            .Include(r => r.Port)
+            .Include(r => r.Vessel)
+            .Include(r => r.Principal)
+            .Where(r => r.Id != rule.Id)
+            .Where(r => r.IsActive)
+            .Where(r => r.RuleType == rule.RuleType)
+            .Where(r => r.CountryId == rule.CountryId)
+            .Where(r => r.PortId == rule.PortId)
+            .Where(r => r.VesselId == rule.VesselId)
+            .Where(r => r.PrincipalId == rule.PrincipalId)
+            .Where(r => r.EffectiveFrom <= newTo && newFrom <= (r.EffectiveTo ?? DateTime.MaxValue))
+            .OrderBy(r => r.EffectiveFrom)
+            .ToListAsync(cancellationToken);
     }
 }

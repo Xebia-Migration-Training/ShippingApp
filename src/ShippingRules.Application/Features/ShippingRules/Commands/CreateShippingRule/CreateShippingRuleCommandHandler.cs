@@ -1,5 +1,6 @@
 using MediatR;
 using ShippingRules.Application.DTOs;
+using ShippingRules.Application.Exceptions;
 using ShippingRules.Application.Interfaces;
 using ShippingRules.Domain.Entities;
 
@@ -11,7 +12,7 @@ public class CreateShippingRuleCommandHandler : IRequestHandler<CreateShippingRu
 
     public CreateShippingRuleCommandHandler(IShippingRuleRepository repository)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     public async Task<ShippingRuleDto> Handle(CreateShippingRuleCommand request, CancellationToken cancellationToken)
@@ -33,10 +34,21 @@ public class CreateShippingRuleCommandHandler : IRequestHandler<CreateShippingRu
             RuleType = request.RuleType,
             RuleCategory = request.RuleCategory,
             RequiresApproval = request.RequiresApproval,
-            IsActive = true,
+            IsActive = !request.RequiresApproval,
+            ApprovedBy = null,
+            ApprovedAt = null,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = "System" // TODO: Get from authentication context
         };
+
+        var conflicts = await _repository.GetConflictingRulesAsync(rule, cancellationToken);
+        if (conflicts.Count > 0)
+        {
+            throw new RuleConflictException(
+                "Conflicting rule(s) found with overlapping criteria and dates.",
+                rule,
+                conflicts);
+        }
 
         var createdRule = await _repository.AddAsync(rule, cancellationToken);
 
@@ -57,7 +69,9 @@ public class CreateShippingRuleCommandHandler : IRequestHandler<CreateShippingRu
             RuleType = createdRule.RuleType,
             RuleCategory = createdRule.RuleCategory,
             IsActive = createdRule.IsActive,
-            RequiresApproval = createdRule.RequiresApproval
+            RequiresApproval = createdRule.RequiresApproval,
+            ApprovedBy = createdRule.ApprovedBy,
+            ApprovedAt = createdRule.ApprovedAt
         };
     }
 }

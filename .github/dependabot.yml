@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Enable version updates for NuGet
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    # Allow both direct and indirect dependencies
+    allow:
+      - dependency-type: "all"

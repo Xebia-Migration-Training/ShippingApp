@@ -1,0 +1,268 @@
+@page "/validate-rule"
+@inject HttpClient Http
+
+<PageTitle>Validate Shipping Rule</PageTitle>
+
+<div class="container mt-4">
+    <h2>Validate Shipping Rule</h2>
+    <p class="text-muted">Test precedence logic and find applicable rules</p>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Country</label>
+                    <select @bind="countryId" @bind:after="@(() => OnCountryChanged(countryId))" class="form-select">
+                        <option value="">-- Select --</option>
+                        @foreach (var c in countries)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Port</label>
+                    <select @bind="portId" class="form-select">
+                        <option value="">-- Select --</option>
+                        @foreach (var p in ports)
+                        {
+                            <option value="@p.Id">@p.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Principal</label>
+                    <select @bind="principalId" @bind:after="@(() => OnPrincipalChanged(principalId))" class="form-select">
+                        <option value="">-- Select --</option>
+                        @foreach (var pr in principals)
+                        {
+                            <option value="@pr.Id">@pr.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Vessel</label>
+                    <select @bind="vesselId" class="form-select">
+                        <option value="">-- Select --</option>
+                        @foreach (var v in vessels)
+                        {
+                            <option value="@v.Id">@v.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Rule Type</label>
+                    <select @bind="ruleType" class="form-select">
+                        <option value="PortCharge">PortCharge</option>
+                        <option value="FreightCharge">FreightCharge</option>
+                        <option value="CustomsDuty">CustomsDuty</option>
+                        <option value="Surcharge">Surcharge</option>
+                        <option value="TerminalHandling">TerminalHandling</option>
+                        <option value="Documentation">Documentation</option>
+                        <option value="Insurance">Insurance</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Effective Date</label>
+                    <InputDate @bind-Value="effectiveDate" class="form-control" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Base Amount</label>
+                    <InputNumber @bind-Value="baseAmount" class="form-control" TValue="decimal" />
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @onclick="FindApplicableRule" disabled="@isSearching">
+                    @(isSearching ? "Working..." : "Find Applicable Rule")
+                </button>
+                <button class="btn btn-secondary" @onclick="CalculateCost" disabled="@isSearching">
+                    @(isSearching ? "Working..." : "Calculate Cost")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(validationMessage))
+    {
+        <div class="alert @(applicableRule != null ? "alert-success" : "alert-warning") mt-3">
+            @validationMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(costMessage))
+    {
+        <div class="alert alert-info mt-2">
+            @costMessage
+        </div>
+    }
+
+    @if (applicableRule != null)
+    {
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">@applicableRule.RuleName</h5>
+                <p class="card-text">@applicableRule.Description</p>
+                <div class="mb-2">
+                    <span class="badge bg-primary">Level @applicableRule.PrecedenceLevel</span>
+                    <span class="badge bg-secondary">@applicableRule.RuleType</span>
+                </div>
+                <p><strong>Base Rate:</strong> $@applicableRule.BaseRate.ToString("N2")</p>
+                <p><strong>Surcharge:</strong> @applicableRule.SurchargePercentage%</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Guid? countryId, portId, principalId, vesselId;
+    private List<LookupItem> countries = new();
+    private List<LookupItem> ports = new();
+    private List<LookupItem> principals = new();
+    private List<LookupItem> vessels = new();
+    private bool isSearching = false;
+    private string validationMessage = string.Empty;
+    private string costMessage = string.Empty;
+    private ShippingRuleDto? applicableRule;
+
+    private string ruleType = "PortCharge";
+    private DateTime effectiveDate = DateTime.UtcNow.Date;
+    private decimal baseAmount = 0m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        countries = await Http.GetFromJsonAsync<List<LookupItem>>("/api/master/countries") ?? new();
+        principals = await Http.GetFromJsonAsync<List<LookupItem>>("/api/master/principals") ?? new();
+    }
+
+    private async Task OnCountryChanged(Guid? value)
+    {
+        countryId = value;
+        portId = null;
+        ports = value.HasValue
+            ? await Http.GetFromJsonAsync<List<LookupItem>>($"/api/master/ports?countryId={value}") ?? new()
+            : new();
+    }
+
+    private async Task OnPrincipalChanged(Guid? value)
+    {
+        principalId = value;
+        vesselId = null;
+        vessels = value.HasValue
+            ? await Http.GetFromJsonAsync<List<LookupItem>>($"/api/master/vessels?principalId={value}") ?? new()
+            : new();
+    }
+
+    private async Task FindApplicableRule()
+    {
+        isSearching = true;
+        validationMessage = string.Empty;
+        applicableRule = null;
+
+        try
+        {
+            var url = "/api/ShippingRules/applicable?";
+            if (countryId.HasValue) url += $"countryId={countryId}&";
+            if (portId.HasValue) url += $"portId={portId}&";
+            if (vesselId.HasValue) url += $"vesselId={vesselId}&";
+            if (principalId.HasValue) url += $"principalId={principalId}&";
+            url += $"ruleType={ruleType}&effectiveDate={effectiveDate:O}";
+            url = url.TrimEnd('&');
+
+            applicableRule = await Http.GetFromJsonAsync<ShippingRuleDto>(url);
+            validationMessage = applicableRule != null
+                ? $"✓ Found applicable rule: {applicableRule.RuleName} (Level {applicableRule.PrecedenceLevel})"
+                : "✗ No applicable rule found";
+        }
+        catch (Exception ex)
+        {
+            validationMessage = $"✗ Error: {ex.Message}";
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    private async Task CalculateCost()
+    {
+        isSearching = true;
+        costMessage = string.Empty;
+
+        try
+        {
+            var payload = new CostCalculationRequest(
+                BaseAmount: baseAmount,
+                CountryId: countryId,
+                PortId: portId,
+                VesselId: vesselId,
+                PrincipalId: principalId,
+                EffectiveDate: effectiveDate,
+                RuleType: ruleType);
+
+            var res = await Http.PostAsJsonAsync("/api/ShippingRules/calculate-cost", payload);
+            if (res.IsSuccessStatusCode)
+            {
+                var body = await res.Content.ReadFromJsonAsync<CostResult>();
+                costMessage = body is null
+                    ? "No result returned"
+                    : $"Applied: {body.AppliedRule} (Level {body.PrecedenceLevel}) | Cost: ${body.CalculatedCost:N2}";
+            }
+            else
+            {
+                var err = await res.Content.ReadAsStringAsync();
+                costMessage = $"No applicable rule found ({res.StatusCode}). {err}";
+            }
+        }
+        catch (Exception ex)
+        {
+            costMessage = $"Error calculating cost: {ex.Message}";
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    public record LookupItem(Guid Id, string Name, string Code);
+
+    public class ShippingRuleDto
+    {
+        public Guid Id { get; set; }
+        public string RuleName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int PrecedenceLevel { get; set; }
+        public decimal BaseRate { get; set; }
+        public decimal SurchargePercentage { get; set; }
+        public string RuleType { get; set; } = string.Empty;
+        public DateTime EffectiveFrom { get; set; }
+    }
+
+    public record CostCalculationRequest(
+        decimal BaseAmount,
+        Guid? CountryId,
+        Guid? PortId,
+        Guid? VesselId,
+        Guid? PrincipalId,
+        DateTime? EffectiveDate,
+        string? RuleType);
+
+    public class CostResult
+    {
+        public string AppliedRule { get; set; } = string.Empty;
+        public int PrecedenceLevel { get; set; }
+        public decimal BaseRate { get; set; }
+        public decimal SurchargePercentage { get; set; }
+        public decimal BaseAmount { get; set; }
+        public decimal CalculatedCost { get; set; }
+    }
+}
