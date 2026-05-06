@@ -27,11 +27,11 @@ public class ShippingRulesController : ControllerBase
         IShippingRuleRepository repository,
         ExchangeRateService fx)
     {
-        _mediator = mediator;
-        _precedenceService = precedenceService;
-        _logger = logger;
-        _repository = repository;
-        _fx = fx;
+        _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+        _precedenceService = precedenceService ?? throw new ArgumentNullException(nameof(precedenceService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _fx = fx ?? throw new ArgumentNullException(nameof(fx));
     }
 
     /// <summary>
@@ -39,10 +39,10 @@ public class ShippingRulesController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ShippingRuleDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<ShippingRuleDto>>> GetAll([FromQuery] bool activeOnly = false)
+    public async Task<ActionResult<IEnumerable<ShippingRuleDto>>> GetAll([FromQuery] bool activeOnly = false, CancellationToken ct = default)
     {
         _logger.LogInformation("Fetching all shipping rules. Active only: {ActiveOnly}", activeOnly);
-        var result = await _mediator.Send(new GetAllRulesQuery { ActiveOnly = activeOnly });
+        var result = await _mediator.Send(new GetAllRulesQuery { ActiveOnly = activeOnly }, ct);
         return Ok(result);
     }
 
@@ -52,13 +52,13 @@ public class ShippingRulesController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ShippingRuleDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ShippingRuleDto>> Create([FromBody] CreateShippingRuleCommand command)
+    public async Task<ActionResult<ShippingRuleDto>> Create([FromBody] CreateShippingRuleCommand command, CancellationToken ct = default)
     {
         _logger.LogInformation("Creating new shipping rule: {RuleName}", command.RuleName);
         
         try
         {
-            var result = await _mediator.Send(command);
+            var result = await _mediator.Send(command, ct);
             return CreatedAtAction(nameof(GetAll), new { id = result.Id }, result);
         }
         catch (RuleConflictException ex)
@@ -140,14 +140,15 @@ public class ShippingRulesController : ControllerBase
         [FromQuery] Guid? vesselId,
         [FromQuery] Guid? principalId,
         [FromQuery] DateTime? effectiveDate,
-        [FromQuery] string ruleType = "FreightCharge")
+        [FromQuery] string ruleType = "FreightCharge",
+        CancellationToken ct = default)
     {
         _logger.LogInformation("Finding applicable rule for Country: {CountryId}, Port: {PortId}, Vessel: {VesselId}, Principal: {PrincipalId}", 
             countryId, portId, vesselId, principalId);
 
         var date = effectiveDate ?? DateTime.UtcNow;
         var rule = await _precedenceService.GetApplicableRuleAsync(
-            countryId, portId, vesselId, principalId, date, ruleType);
+            countryId, portId, vesselId, principalId, date, ruleType, ct);
 
         if (rule == null)
         {
@@ -179,7 +180,7 @@ public class ShippingRulesController : ControllerBase
     [ProducesResponseType(typeof(decimal), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<object>> CalculateCost(
-        [FromBody] CostCalculationRequest request)
+        [FromBody] CostCalculationRequest request, CancellationToken ct = default)
     {
         var effectiveAt = request.EffectiveDate ?? DateTime.UtcNow;
         var ruleType = request.RuleType ?? "FreightCharge";
@@ -329,8 +330,8 @@ public class ShippingRulesController : ControllerBase
 
         return Ok(dto);
     }
-// Delete the shipping rule by id
-    /// </summary>
+// Delete the shipping rule by city 
+/// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -348,7 +349,18 @@ public class ShippingRulesController : ControllerBase
 
         return NoContent();
     }
-      
+    // Additional endpoints for expiring/deactivating rules, or fetching by criteria, can be added similarly.
+    /// <summary>
+    /// Expire a shipping rule (sets EffectiveTo to now and deactivates it), show me 3 different ways to do this
+  
+
+
+
+
+
+
+
+
     
 
 }

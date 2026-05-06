@@ -14,8 +14,8 @@ public class MasterDataController : ControllerBase
 
     public MasterDataController(ShippingRulesDbContext db, ExchangeRateService fx)
     {
-        _db = db;
-        _fx = fx;
+        _db = db ?? throw new ArgumentNullException(nameof(db));
+        _fx = fx ?? throw new ArgumentNullException(nameof(fx));
     }
 
     [HttpGet("countries")]

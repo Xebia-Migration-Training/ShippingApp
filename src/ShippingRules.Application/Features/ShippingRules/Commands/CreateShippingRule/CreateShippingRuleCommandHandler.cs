@@ -12,7 +12,7 @@ public class CreateShippingRuleCommandHandler : IRequestHandler<CreateShippingRu
 
     public CreateShippingRuleCommandHandler(IShippingRuleRepository repository)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     public async Task<ShippingRuleDto> Handle(CreateShippingRuleCommand request, CancellationToken cancellationToken)

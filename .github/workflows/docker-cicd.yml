@@ -27,7 +27,7 @@ on:
 env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: easternshipping/api
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '9.0.x'
 
 jobs:
   # Stage 1: Build & Test

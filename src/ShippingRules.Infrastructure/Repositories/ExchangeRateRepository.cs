@@ -11,7 +11,7 @@ public class ExchangeRateRepository : IExchangeRateRepository
 
     public ExchangeRateRepository(ShippingRulesDbContext db)
     {
-        _db = db;
+        _db = db ?? throw new ArgumentNullException(nameof(db));
     }
 
     public async Task<ExchangeRate?> GetRateAsync(string fromCurrency, string toCurrency, DateTime at, CancellationToken ct = default)

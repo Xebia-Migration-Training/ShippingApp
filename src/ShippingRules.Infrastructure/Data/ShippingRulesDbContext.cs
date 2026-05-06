@@ -227,5 +227,6 @@ public class ShippingRulesDbContext : DbContext
 
 
         modelBuilder.Entity<ExchangeRate>().HasData(usdToInr, inrToUsd);
+        modelBuilder.Entity<ShippingRule>().HasData(rule1);
     }
 }

@@ -10,7 +10,7 @@ public class GetAllRulesQueryHandler : IRequestHandler<GetAllRulesQuery, IEnumer
 
     public GetAllRulesQueryHandler(IShippingRuleRepository repository)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     public async Task<IEnumerable<ShippingRuleDto>> Handle(GetAllRulesQuery request, CancellationToken cancellationToken)

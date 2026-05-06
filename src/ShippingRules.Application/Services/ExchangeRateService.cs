@@ -8,7 +8,7 @@ public class ExchangeRateService
 
     public ExchangeRateService(IExchangeRateRepository repo)
     {
-        _repo = repo;
+        _repo = repo ?? throw new ArgumentNullException(nameof(repo));
     }
 
     public async Task<decimal?> TryGetRateAsync(string fromCurrency, string toCurrency, DateTime at, CancellationToken ct = default)

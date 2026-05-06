@@ -11,7 +11,7 @@ public class ShippingRuleRepository : IShippingRuleRepository
 
     public ShippingRuleRepository(ShippingRulesDbContext context)
     {
-        _context = context;
+        _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
     public async Task<ShippingRule?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

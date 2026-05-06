@@ -11,7 +11,7 @@ public class RulePrecedenceService
 
     public RulePrecedenceService(IShippingRuleRepository repository)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     /// <summary>
