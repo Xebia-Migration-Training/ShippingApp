@@ -1,0 +1,11 @@
+{
+  "solution": {
+    "path": "ShippingRules.sln",
+    "projects": [
+      "src\\ShippingRules.Domain\\ShippingRules.Domain.csproj",
+      "src\\ShippingRules.Application\\ShippingRules.Application.csproj",
+      "src\\ShippingRules.Infrastructure\\ShippingRules.Infrastructure.csproj",
+      "src\\ShippingRules.API\\ShippingRules.API.csproj"
+    ]
+  }
+}
