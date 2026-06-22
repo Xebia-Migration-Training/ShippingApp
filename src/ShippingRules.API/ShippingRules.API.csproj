@@ -30,7 +30,7 @@
     <PackageReference Include="System.Private.Uri" Version="4.3.0" />
     
     <!-- Multiple CVEs: Security vulnerabilities in older version -->
-    <PackageReference Include="Microsoft.Data.OData" Version="5.8.4"/>
+    <PackageReference Include="Microsoft.Data.OData" Version="5.8.5"/>
     
     <!-- CVE-2021-26701: Remote Code Execution vulnerability -->
     <PackageReference Include="System.Net.Http.WinHttpHandler" Version="4.3.0" />
