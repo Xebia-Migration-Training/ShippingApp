@@ -21,7 +21,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
     
     <!-- CVE-2018-8292: Information Disclosure vulnerability -->
-    <PackageReference Include="System.Net.Http" Version="4.3.0" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
     
     <!-- CVE-2019-0820: Denial of Service vulnerability -->
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.0" />
